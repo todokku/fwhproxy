@@ -4,6 +4,7 @@ class Pixiv implements Upstream {
 
     // Upstream name
     const name = 'pixiv';
+    // User-Agent for call API
     const user_agent = 'PixivAndroidApp/5.0.64 (Android 6.0)';
     // API url
     const token_url = 'https://oauth.secure.pixiv.net/auth/token';
@@ -72,16 +73,20 @@ class Pixiv implements Upstream {
         // Get parameters
         $illust_id = intval($args['illust_id'], 10);
         $page = array_key_exists('page', $args) ? intval($args['page'], 10) : 1;
+        $size = array_key_exists('size', $args) ? strtolower($args['size']) : 'large';
+        if($size != 'medium' && $size != 'large') {
+            $size = 'large';
+        }
 
         // Init oauth
         $this->init_oauth();
         // Get illust info
         $info = $this->fetch_info($illust_id);
         // Select page
-        $image_url = $info['image_urls']['large'];
+        $image_url = $info['image_urls'][$size];
         if($info['metadata'] !== null) {
             $page_index = ($page - 1) % $info['page_count'];
-            $image_url = $info['metadata']['pages'][$page_index]['image_urls']['large'];
+            $image_url = $info['metadata']['pages'][$page_index]['image_urls'][$size];
         }
         // Download illust image
         return $this->download($image_url);
@@ -134,10 +139,10 @@ class Pixiv implements Upstream {
     }
 
     private function fetch_info($illust_id) {
-        // illust info API
-        $info_url = 'https://public-api.secure.pixiv.net/v1/works/'.$illust_id.'.json?image_sizes=large';
-        # call API
+        // fetch all available sizes
+        $info_url = 'https://public-api.secure.pixiv.net/v1/works/'.$illust_id.'.json?image_sizes=medium%2Clarge';
         $ch = curl_init($info_url);
+        curl_setopt($ch, CURLOPT_USERAGENT, self::user_agent);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
             'Authorization: Bearer '.$this->access_token

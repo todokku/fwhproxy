@@ -2,4 +2,6 @@ Options -Indexes
 
 RewriteEngine On
 RewriteRule ^pixiv/(\d+)$ pixiv.php?illust_id=$1 [QSA]
+RewriteRule ^pixiv/(\d+)/(medium|large)$ pixiv.php?illust_id=$1&size=$2 [QSA]
 RewriteRule ^pixiv/(\d+)/(\d+)$ pixiv.php?illust_id=$1&page=$2 [QSA]
+RewriteRule ^pixiv/(\d+)/(\d+)/(medium|large)$ pixiv.php?illust_id=$1&page=$2&size=$3 [QSA]
