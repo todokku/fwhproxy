@@ -1,6 +1,6 @@
 <?php
 
-class ResponseRenderer {
+class Renderer {
 
     private $status_code;
     private $headers;
