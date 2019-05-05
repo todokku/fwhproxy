@@ -1,6 +1,6 @@
 <?php
 
-class DB {
+class DB implements Storage {
 
     private $host;
     private $username;
@@ -33,8 +33,18 @@ class DB {
         }
     }
 
+    public function init() {
+        // Drop existing table
+        $this->db_query("DROP TABLE IF EXISTS `upstream`");
+        // Create table
+        $this->db_query("CREATE TABLE `upstream`(
+            `name` varchar(32) NOT NULL PRIMARY KEY,
+            `config` text,
+            `update_time` datetime NOT NULL
+        )");
+    }
 
-    public function get_config($name) {
+    public function load_config($name) {
         $sql = "SELECT config FROM upstream WHERE name='".$name."' LIMIT 1";
         $result = $this->db_query($sql);
         if(count($result) > 0) {
@@ -44,14 +54,13 @@ class DB {
         }
     }
 
-    public function set_config($name, $config) {
+    public function save_config($name, $config) {
         $config = json_encode($config);
         $sql = "
-            INSERT INTO upstream(`name`, `config`)
-            VALUES('".$name."', '".$config."') 
+            INSERT INTO `upstream`
+            VALUES('".$name."', '".$config."', NOW()) 
             ON DUPLICATE KEY UPDATE 
-                config='".$config."', 
-                update_time=NOW()";
+                config='".$config."', update_time=NOW()";
         $this->db_query($sql);
     }
 
