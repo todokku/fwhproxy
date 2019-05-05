@@ -1,0 +1,5 @@
+Options -Indexes
+
+RewriteEngine On
+RewriteRule ^pixiv/(\d+)$ pixiv.php?illust_id=$1 [QSA]
+RewriteRule ^pixiv/(\d+)/(\d+)$ pixiv.php?illust_id=$1&page=$2 [QSA]
