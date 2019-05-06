@@ -48,15 +48,15 @@
 准备好主机空间后，按照如下步骤进行安装：
 
 1. 下载整个项目。
-2. 将include目录下的`config.inc.example.php`改名为`config.inc.php`，并修改其中的mysql相关配置；
+2. 将`include`目录下的`config.inc.example.php`改名为`config.inc.php`，并修改其中的MySQL相关配置；
 3. 将项目文件上传到主机空间的Web根目录；
-4. 在浏览器中访问地址： `http://your-host-name/install.php?username=<Pixiv用户名>&password=<Pixiv密码>` ，进行授权
-5. 为安全起见，建议在饿授权后删除服务器上的`install.php`文件；
+4. 在浏览器中访问地址： `http://your-host-name/install.php?username=<Pixiv用户名>&password=<Pixiv密码>` ，进行授权；
+5. 为安全起见，建议在授权后删除服务器上的`install.php`文件；
 6. Enjoy it!
 
-如果没有Pixiv帐号，可将`config.inc.php`中的`_PIXIV_NEED_OAUTH`设置为`false`，就可以跳过第4步的授权过程。
-
-在不授权的情况下，只可以访问Pixiv的公开内容，因此无法访问R-18内容的图片。
+> 如果没有或不想使用Pixiv帐号，可将`config.inc.php`中的`_PIXIV_NEED_OAUTH`设置为`false`，就可以跳过第4步的授权过程。
+> 
+> **在不授权的情况下，只可以访问Pixiv的公开内容，因此无法访问R-18内容的图片。**
 
 # Usage
 
