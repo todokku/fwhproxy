@@ -4,16 +4,28 @@
 
 功能：生成一个针对目标服务器上的内容的代理URL，通过此URL可直接访问到目标内容，不会要求提供Referer/Cookie等信息。
 
-**目前仅支持Pixiv。**
+> 目前仅支持Pixiv。
+
+这个URL可以用于：
+
+* 在博客文章中引用图片；
+* 在BBS帖子中引用图片；
+* 丢到下载工具中下载；
+* etc.
+
+> 制作此脚本的初衷，是用来辅助一个爬Pixiv图片的Telegram Bot。
+> 由于Telegram支持通过发URL的方式上传图片/文件，因此将解析图片源地址和代理下载的逻辑独立出来，托管在不限流量的免费服务上，Bot的逻辑也可以简单一些。
 
 # Demo
 
 * 单图: http://proxy.freevar.com/pixiv/65089776
 * 图集中的一页: http://proxy.freevar.com/pixiv/74369969/3
 
-上述Demo图片来自作者：[Hiten](https://www.pixiv.net/member.php?id=490219)，**如有侵权请告知，我会删除相关内容。**
+上述Demo图片来自Pixiv的作者：[Hiten](https://www.pixiv.net/member.php?id=490219)，**如有侵权请告知，我会删除相关内容。**
 
 > 你可通过更改URL中的插画ID，来查看其他图片。
+> 
+> 你也可以直接使用此地址，但是我并不保证此地址总是可用或URL格式始终兼容。因此最好自行部署☟
 
 # Installation
 
