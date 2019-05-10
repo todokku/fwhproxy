@@ -1,10 +1,7 @@
 <?php
 
 require_once "include/config.inc.php";
-
-spl_autoload_register(function($class_name) {
-    include_once "include/class." . strtolower($class_name) . ".php";
-});
+require_once "include/classloader.php";
 
 // response render
 $renderer = new Renderer();
