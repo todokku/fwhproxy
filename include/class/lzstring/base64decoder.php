@@ -4,7 +4,7 @@ namespace LZString;
 
 class Base64Decoder extends Decoder {
 
-    const BaseChars =  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    private const BaseChars =  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
     /**
      * @var array
