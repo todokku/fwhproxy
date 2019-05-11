@@ -15,8 +15,8 @@ abstract class HTTP {
             curl_setopt($ch, CURLOPT_HTTPHEADER, $hs);
         }
         // for debug
-        curl_setopt($ch, CURLOPT_PROXY, '127.0.0.1:8118');
-        curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+        //curl_setopt($ch, CURLOPT_PROXY, '127.0.0.1:8118');
+        //curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
     }
 
     public static function get(string $url, $headers, $header_func) {
