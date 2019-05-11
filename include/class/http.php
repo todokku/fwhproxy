@@ -14,13 +14,19 @@ abstract class HTTP {
             }
             curl_setopt($ch, CURLOPT_HTTPHEADER, $hs);
         }
+        // for debug
+        curl_setopt($ch, CURLOPT_PROXY, '127.0.0.1:8118');
+        curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
     }
 
-    public static function get(string $url, $headers) {
+    public static function get(string $url, $headers, $header_func) {
         $ch = curl_init($url);
         self::set_opts($ch, $headers);
-        $res = curl_exec($ch);
-        return $res;
+        if($header_func !== null) {
+            curl_setopt($ch, CURLOPT_HEADERFUNCTION, $header_func);
+        }
+        $resp = curl_exec($ch);
+        return $resp;
     }
 
     public static function post(string $url, $params, $headers) {
@@ -34,8 +40,8 @@ abstract class HTTP {
         $headers['Content-Type'] = 'application/x-www-form-urlencoded';
         $headers['Content-Length'] = strlen($data);
         self::set_opts($ch, $headers);
-        $res = curl_exec($ch);
-        return $res;
+        $resp = curl_exec($ch);
+        return $resp;
     }
 
 }
