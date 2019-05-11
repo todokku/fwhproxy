@@ -94,7 +94,8 @@ class ManHuaGui implements Upstream {
             }
             return $len;
         });
-
+        // set filename
+        $headers['Content-Disposition'] = 'inline; filename="' . $filename . '"';
         return array(
             $headers, $body
         );
