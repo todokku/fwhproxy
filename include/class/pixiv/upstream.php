@@ -7,24 +7,29 @@ use \HTTP;
 
 class Upstream implements \Upstream {
 
-    // User-Agent for call API
-    const user_agent = 'PixivAndroidApp/5.0.64 (Android 6.0)';
     // API url
-    const token_url = 'https://oauth.secure.pixiv.net/auth/token';
-    const referer_url = 'https://app-api.pixiv.net/';
+    private const TokenUrl = 'https://oauth.secure.pixiv.net/auth/token';
+    private const RefererUrl = 'https://app-api.pixiv.net/';
     // OAuth settings
-    const client_id = 'MOBrBDS8blbauoSck0ZfDbtuzpyT';
-    const client_secret = 'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj';
+    private const ClientId = 'MOBrBDS8blbauoSck0ZfDbtuzpyT';
+    private const ClientSecret = 'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj';
     // Default access_token with limited scopes
-    const builtin_access_token = '8mMXXWT9iuwdJvsVIvQsFYDwuZpRCMePeyagSh30ZdU';
+    private const BuiltinAccessToken = '8mMXXWT9iuwdJvsVIvQsFYDwuZpRCMePeyagSh30ZdU';
+    // Illust size
+    private const SizeLarge = 'large';
+    private const SizeMedium = 'medium';
+    private const SizeAuto = 'auto';
+
+    private const HeaderContentLength = 'content-length';
+    private const MaxAutoSize = 5 * 1024 * 1024;
 
     private $need_oauth = false;
     private $dba;
 
     // The access_token using for call API
-    private $access_token = self::builtin_access_token;
+    private $access_token = self::BuiltinAccessToken;
 
-    public function __construct(DBA $dba, $need_oauth=false) {
+    public function __construct(?DBA $dba, $need_oauth=false) {
         $this->dba = $dba;
         $this->need_oauth = $need_oauth;
     }
@@ -39,10 +44,10 @@ class Upstream implements \Upstream {
         $username = $args['username'];
         $password = $args['password'];
         // Login to grant access token
-        $resp = HTTP::post(self::token_url, array(
+        $resp = HTTP::post(self::TokenUrl, array(
             'get_secure_url' => '1',
-            'client_id'      => self::client_id,
-            'client_secret'  => self::client_secret,
+            'client_id'      => self::ClientId,
+            'client_secret'  => self::ClientSecret,
             'grant_type'     => 'password',
             'username'       => $username,
             'password'       => $password,
@@ -64,20 +69,30 @@ class Upstream implements \Upstream {
         // Get parameters
         $illust_id = intval($args['illust_id'], 10);
         $page = array_key_exists('page', $args) ? intval($args['page'], 10) : 1;
-        $size = array_key_exists('size', $args) ? strtolower($args['size']) : 'large';
-        if($size != 'medium' && $size != 'large' && $size != 'auto') {
-            $size = 'large';
+        // Prior to fetch large size
+        $size = array_key_exists('size', $args) ? strtolower($args['size']) : self::SizeLarge;
+        if($size != self::SizeMedium && $size != self::SizeLarge && $size != self::SizeAuto) {
+            $size = self::SizeLarge;
         }
 
         // Init oauth
         $this->initOauth();
         // Get illust info
         $info = $this->fetchInfo($illust_id);
-        // Select page
-        $image_url = $info['image_urls'][$size];
+        $image_urls = $info['image_urls'];
         if($info['metadata'] !== null) {
             $page_index = ($page - 1) % $info['page_count'];
-            $image_url = $info['metadata']['pages'][$page_index]['image_urls'][$size];
+            $image_urls = $info['metadata']['pages'][$page_index]['image_urls'];
+        }
+
+        if($size == self::SizeAuto) {
+            $image_url = $image_urls[self::SizeLarge];
+            $large_size = $this->getImageSize($image_url);
+            if($large_size > self::MaxAutoSize) {
+                $image_url = $image_urls[self::SizeMedium];
+            }
+        } else {
+            $image_url = $image_urls[$size];
         }
         // Download illust image
         return $this->download($image_url);
@@ -103,12 +118,12 @@ class Upstream implements \Upstream {
     private function refreshToken($refresh_token) {
         $data = array(
             'get_secure_url' => '1',
-            'client_id'      => self::client_id,
-            'client_secret'  => self::client_secret,
+            'client_id'      => self::ClientId,
+            'client_secret'  => self::ClientSecret,
             'grant_type'     => 'refresh_token',
             'refresh_token'  => $refresh_token
         );
-        $resp = HTTP::post(self::token_url, $data, null);
+        $resp = HTTP::post(self::TokenUrl, $data, null);
         $result = json_decode($resp, true);
         if($result['has_error']) {
             throw new Exception($result['errors']['system']['message']);
@@ -127,17 +142,25 @@ class Upstream implements \Upstream {
             'Authorization' => 'Bearer '.$this->access_token
         ), null);
         $result = json_decode($resp, true);
-        if($result['has_error']) {
+        if(array_key_exists('has_error', $result) && $result['has_error']) {
             throw new Exception($result['errors']['system']['message']);
         }
         return $result['response'][0];
+    }
+
+    private function getImageSize($image_url) {
+        $headers = HTTP::head($image_url, array(
+            'Referer' => self::RefererUrl
+        ));
+        return array_key_exists(self::HeaderContentLength, $headers) ?
+            intval($headers[self::HeaderContentLength]) : -1;
     }
 
     private function download($image_url) {
         // download image
         $headers = array();
         $body = HTTP::get($image_url, array(
-            'Referer' => self::referer_url
+            'Referer' => self::RefererUrl
         ), function($ch, $raw_header) use (&$headers) {
             $len = strlen($raw_header);
             $fields = explode(':', $raw_header, 2);
