@@ -1,9 +1,12 @@
 <?php
 
-class Pixiv implements Upstream {
+namespace Pixiv;
 
-    // Upstream name
-    const name = 'pixiv';
+use \Exception;
+use \HTTP;
+
+class Upstream implements \Upstream {
+
     // User-Agent for call API
     const user_agent = 'PixivAndroidApp/5.0.64 (Android 6.0)';
     // API url
@@ -16,13 +19,13 @@ class Pixiv implements Upstream {
     const builtin_access_token = '8mMXXWT9iuwdJvsVIvQsFYDwuZpRCMePeyagSh30ZdU';
 
     private $need_oauth = false;
-    private $storage;
+    private $dba;
 
     // The access_token using for call API
     private $access_token = self::builtin_access_token;
 
-    public function __construct(Storage $storage, $need_oauth=false) {
-        $this->storage = $storage;
+    public function __construct(DBA $dba, $need_oauth=false) {
+        $this->dba = $dba;
         $this->need_oauth = $need_oauth;
     }
 
@@ -36,25 +39,14 @@ class Pixiv implements Upstream {
         $username = $args['username'];
         $password = $args['password'];
         // Login to grant access token
-        $data = http_build_query(array(
+        $resp = HTTP::post(self::token_url, array(
             'get_secure_url' => '1',
             'client_id'      => self::client_id,
             'client_secret'  => self::client_secret,
             'grant_type'     => 'password',
             'username'       => $username,
             'password'       => $password,
-
-        ));
-        $ch = curl_init(self::token_url);
-        curl_setopt($ch, CURLOPT_USERAGENT, self::user_agent);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Content-Type: application/x-www-form-urlencoded',
-            'Content-Length: '.strlen($data),
-        ));
-        $resp = curl_exec($ch);
+        ), null);
         $result = json_decode($resp, true);
         if($result['has_error']) {
             throw new Exception($result['errors']['system']['message']);
@@ -65,8 +57,7 @@ class Pixiv implements Upstream {
             'refresh_token' => $result['response']['refresh_token'],
             'token_expiry' => $result['response']['expires_in'] + time()
         );
-        $this->storage->init();
-        $this->storage->save_config(self::name, $config);
+        $this->dba->saveConfig($config);
     }
 
     public function fetch(array $args) {
@@ -74,14 +65,14 @@ class Pixiv implements Upstream {
         $illust_id = intval($args['illust_id'], 10);
         $page = array_key_exists('page', $args) ? intval($args['page'], 10) : 1;
         $size = array_key_exists('size', $args) ? strtolower($args['size']) : 'large';
-        if($size != 'medium' && $size != 'large') {
+        if($size != 'medium' && $size != 'large' && $size != 'auto') {
             $size = 'large';
         }
 
         // Init oauth
-        $this->init_oauth();
+        $this->initOauth();
         // Get illust info
-        $info = $this->fetch_info($illust_id);
+        $info = $this->fetchInfo($illust_id);
         // Select page
         $image_url = $info['image_urls'][$size];
         if($info['metadata'] !== null) {
@@ -92,41 +83,32 @@ class Pixiv implements Upstream {
         return $this->download($image_url);
     }
 
-    private function init_oauth() {
-        if(!$this->need_oauth || $this->storage === null) {
+    private function initOauth() {
+        if(!$this->need_oauth || $this->dba === null) {
             return;
         }
-        // load config
-        $config = $this->storage->load_config(self::name);
+        // Load config from database
+        $config = $this->dba->loadConfig();
         if($config === null) {
             return;
         }
+        // refresh token if need
         if(empty($config['access_token']) || $config['token_expiry'] < time()) {
-            // refresh token
-            $config = $this->refresh_token($config['refresh_token']);
-            // store tokens
-            $this->storage->save_config(self::name, $config);
+            $config = $this->refreshToken($config['refresh_token']);
+            $this->dba->saveConfig($config);
         }
         $this->access_token = $config['access_token'];
     }
 
-    private function refresh_token($refresh_token) {
-        $data = http_build_query(array(
+    private function refreshToken($refresh_token) {
+        $data = array(
             'get_secure_url' => '1',
             'client_id'      => self::client_id,
             'client_secret'  => self::client_secret,
             'grant_type'     => 'refresh_token',
             'refresh_token'  => $refresh_token
-        ));
-        $ch = curl_init(self::token_url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Content-Type: application/x-www-form-urlencoded',
-            'Content-Length: '.strlen($data),
-        ));
-        $resp = curl_exec($ch);
+        );
+        $resp = HTTP::post(self::token_url, $data, null);
         $result = json_decode($resp, true);
         if($result['has_error']) {
             throw new Exception($result['errors']['system']['message']);
@@ -138,16 +120,12 @@ class Pixiv implements Upstream {
         );
     }
 
-    private function fetch_info($illust_id) {
+    private function fetchInfo($illust_id) {
         // fetch all available sizes
         $info_url = 'https://public-api.secure.pixiv.net/v1/works/'.$illust_id.'.json?image_sizes=medium%2Clarge';
-        $ch = curl_init($info_url);
-        curl_setopt($ch, CURLOPT_USERAGENT, self::user_agent);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Authorization: Bearer '.$this->access_token
-        ));
-        $resp = curl_exec($ch);
+        $resp = HTTP::get($info_url, array(
+            'Authorization' => 'Bearer '.$this->access_token
+        ), null);
         $result = json_decode($resp, true);
         if($result['has_error']) {
             throw new Exception($result['errors']['system']['message']);
@@ -156,12 +134,11 @@ class Pixiv implements Upstream {
     }
 
     private function download($image_url) {
+        // download image
         $headers = array();
-        // download image and store headers
-        $ch = curl_init($image_url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_REFERER, self::referer_url);
-        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function($ch, $raw_header) use (&$headers) {
+        $body = HTTP::get($image_url, array(
+            'Referer' => self::referer_url
+        ), function($ch, $raw_header) use (&$headers) {
             $len = strlen($raw_header);
             $fields = explode(':', $raw_header, 2);
             if(count($fields) == 2) {
@@ -178,7 +155,6 @@ class Pixiv implements Upstream {
             }
             return $len;
         });
-        $body = curl_exec($ch);
         // set special headers
         $file_name = basename(parse_url($image_url, PHP_URL_PATH));
         $headers['Content-Disposition'] = 'inline; filename="'.$file_name.'"';
