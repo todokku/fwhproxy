@@ -77,6 +77,7 @@ class Upstream implements \Upstream {
 
         // Init oauth
         $this->initOauth();
+
         // Get illust info
         $info = $this->fetchInfo($illust_id);
         $image_urls = $info['image_urls'];
@@ -84,7 +85,7 @@ class Upstream implements \Upstream {
             $page_index = ($page - 1) % $info['page_count'];
             $image_urls = $info['metadata']['pages'][$page_index]['image_urls'];
         }
-
+        // Select image url
         if($size == self::SizeAuto) {
             $image_url = $image_urls[self::SizeLarge];
             $large_size = $this->getImageSize($image_url);
@@ -94,8 +95,36 @@ class Upstream implements \Upstream {
         } else {
             $image_url = $image_urls[$size];
         }
-        // Download illust image
-        return $this->download($image_url);
+
+        // Open URL stream
+        $context = stream_context_create(array(
+            'http' => array(
+                'protocol_version' => 1.1,
+                'user_agent' => HTTP::UserAgent,
+                'header' => 'Referer: '.self::RefererUrl
+            )
+        ));
+        $stream = fopen($image_url, 'r', null, $context);
+        // Get response headers from metadata
+        $meta = stream_get_meta_data($stream);
+        $headers = array();
+        foreach ($meta['wrapper_data'] as $header) {
+            $fields = explode(':', $header, 2);
+            if( count($fields) !== 2) {
+                continue;
+            }
+            $name = strtolower(trim($fields[0]));
+            $value = trim($fields[0]);
+            if($name == 'content-type' ||
+                $name == 'content-length' ||
+                $name == 'last-modified' ||
+                $name == 'cache-control' ||
+                $name == 'expires') {
+                $headers[$name] = $value;
+            }
+        }
+        // return
+        return array($headers, $stream);
     }
 
     private function initOauth() {
@@ -154,35 +183,6 @@ class Upstream implements \Upstream {
         ));
         return array_key_exists(self::HeaderContentLength, $headers) ?
             intval($headers[self::HeaderContentLength]) : -1;
-    }
-
-    private function download($image_url) {
-        // download image
-        $headers = array();
-        $body = HTTP::get($image_url, array(
-            'Referer' => self::RefererUrl
-        ), function($ch, $raw_header) use (&$headers) {
-            $len = strlen($raw_header);
-            $fields = explode(':', $raw_header, 2);
-            if(count($fields) == 2) {
-                $name = trim($fields[0]);
-                $value = trim($fields[1]);
-                // Store specified headers
-                if(strcasecmp($name, 'content-type') === 0 ||
-                    strcasecmp($name, 'content-length') === 0 ||
-                    strcasecmp($name, 'last-modified') === 0 ||
-                    strcasecmp($name, 'cache-control') === 0 ||
-                    strcasecmp($name, 'expires') === 0) {
-                    $headers[$name] = $value;
-                }
-            }
-            return $len;
-        });
-        // set special headers
-        $file_name = basename(parse_url($image_url, PHP_URL_PATH));
-        $headers['Content-Disposition'] = 'inline; filename="'.$file_name.'"';
-
-        return array($headers, $body);
     }
 
 }
