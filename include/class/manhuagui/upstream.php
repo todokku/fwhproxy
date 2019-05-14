@@ -59,6 +59,8 @@ class Upstream implements \Upstream {
             $stream = $this->convertFormat($stream, $format);
             // update content-type
             $headers['content-type'] = 'image/' . $format;
+            $filename = $book_id . '_' . $chapter_id . '_' . ($page + 1) . '.' . $format;
+            $headers['content-disposition'] = 'inline; filename="' . $filename . '"';
         }
         return array($headers, $stream);
     }
