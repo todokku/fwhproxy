@@ -95,36 +95,8 @@ class Upstream implements \Upstream {
         } else {
             $image_url = $image_urls[$size];
         }
-
-        // Open URL stream
-        $context = stream_context_create(array(
-            'http' => array(
-                'protocol_version' => 1.1,
-                'user_agent' => HTTP::UserAgent,
-                'header' => 'Referer: '.self::RefererUrl
-            )
-        ));
-        $stream = fopen($image_url, 'r', null, $context);
-        // Get response headers from metadata
-        $meta = stream_get_meta_data($stream);
-        $headers = array();
-        foreach ($meta['wrapper_data'] as $header) {
-            $fields = explode(':', $header, 2);
-            if( count($fields) !== 2) {
-                continue;
-            }
-            $name = strtolower(trim($fields[0]));
-            $value = trim($fields[0]);
-            if($name == 'content-type' ||
-                $name == 'content-length' ||
-                $name == 'last-modified' ||
-                $name == 'cache-control' ||
-                $name == 'expires') {
-                $headers[$name] = $value;
-            }
-        }
         // return
-        return array($headers, $stream);
+        return $this->getStream($image_url);
     }
 
     private function initOauth() {
@@ -183,6 +155,43 @@ class Upstream implements \Upstream {
         ));
         return array_key_exists(self::HeaderContentLength, $headers) ?
             intval($headers[self::HeaderContentLength]) : -1;
+    }
+
+    private function getStream($image_url) {
+        // Open URL stream
+        $context = stream_context_create(array(
+            'http' => array(
+                'protocol_version' => 1.1,
+                'user_agent' => HTTP::UserAgent,
+                'header' => 'Referer: '.self::RefererUrl
+            )
+        ));
+        $stream = fopen($image_url, 'r', null, $context);
+
+        // Get headers
+        $headers = array();
+        $meta = stream_get_meta_data($stream);
+        foreach ($meta['wrapper_data'] as $header) {
+            $fields = explode(':', $header, 2);
+            if( count($fields) !== 2) {
+                continue;
+            }
+            $name = strtolower(trim($fields[0]));
+            $value = trim($fields[0]);
+            if($name == 'content-type' ||
+                $name == 'content-length' ||
+                $name == 'last-modified' ||
+                $name == 'cache-control' ||
+                $name == 'expires') {
+                $headers[$name] = $value;
+            }
+        }
+        $filename = basename( parse_url($image_url, PHP_URL_PATH) );
+        $headers['content-disposition'] = 'inline; filename="' . $filename . '"';
+
+        return array(
+            $headers, $stream
+        );
     }
 
 }
