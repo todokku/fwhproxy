@@ -177,7 +177,7 @@ class Upstream implements \Upstream {
                 continue;
             }
             $name = strtolower(trim($fields[0]));
-            $value = trim($fields[0]);
+            $value = trim($fields[1]);
             if($name == 'content-type' ||
                 $name == 'content-length' ||
                 $name == 'last-modified' ||

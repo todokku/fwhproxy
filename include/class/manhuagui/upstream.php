@@ -2,11 +2,10 @@
 
 namespace ManHuaGui;
 
-use LZString\Base64Decoder;
+use \LZString\Base64Decoder;
 use \HTTP;
 
-class Upstream implements \Upstream
-{
+class Upstream implements \Upstream {
 
     private const JsPattern = '/}\(\'([^\']+)\',\d+,\d+,\'([^\']+)\'.*\)/';
     private const KeyBaseChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -54,16 +53,14 @@ class Upstream implements \Upstream
         }
         $data = json_decode($data, true);
         // download orignal image
-        list($headers, $body) = $this->download($data, $page);
+        list($headers, $stream) = $this->getStream($data, $page);
+        // convert format
         if ($format != '') {
-            $out_file = tempnam(sys_get_temp_dir(), 'mhg_');
-            $this->convertImage($body, $format, $out_file);
+            $stream = $this->convertFormat($stream, $format);
             // update content-type
             $headers['content-type'] = 'image/' . $format;
-            $headers['x-temp-file'] = $out_file;
-            $body = file_get_contents($out_file);
         }
-        return array($headers, $body);
+        return array($headers, $stream);
     }
 
     private function fetchData($book_id, $chapter_id) {
@@ -114,57 +111,71 @@ class Upstream implements \Upstream
         return $result;
     }
 
-    private function download($data, $page) {
+    private function getStream($data, $page) {
+        // get image url and referer
         $filename = $data['files'][$page % $data['len']];
         $image_url = self::ImageHost . $data['path'] . $filename . '?' .
             http_build_query(array(
                 'cid' => $data['cid'],
                 'md5' => $data['sl']['md5']
             ));
-        $referer_url = 'https://tw.manhuagui.com/comic/' . $data['bid'] . '/' . $data['cid'] . '.html';
+        $referer = 'https://tw.manhuagui.com/comic/' . $data['bid'] . '/' . $data['cid'] . '.html';
+
+        // open stream
+        $context = stream_context_create(array(
+            'http' => array(
+                'protocol_version' => 1.1,
+                'user_agent' => HTTP::UserAgent,
+                'header' => 'Referer: '.$referer
+            )
+        ));
+        $stream = fopen($image_url, 'r', null, $context);
+
+        // get headers
         $headers = array();
-        $body = HTTP::get($image_url, array(
-            'Referer' => $referer_url,
-        ), function ($ch, $raw_header) use (&$headers) {
-            $len = strlen($raw_header);
-            $fields = explode(':', $raw_header, 2);
-            if (count($fields) == 2) {
-                $name = strtolower(trim($fields[0]));
-                $value = trim($fields[1]);
-                // Store specified headers
-                if (strcmp($name, 'content-type') === 0 ||
-                    strcmp($name, 'content-length') === 0 ||
-                    strcmp($name, 'last-modified') === 0 ||
-                    strcmp($name, 'cache-control') === 0 ||
-                    strcmp($name, 'expires') === 0) {
-                    $headers[$name] = $value;
-                }
+        $meta = stream_get_meta_data($stream);
+        foreach ($meta['wrapper_data'] as $header) {
+            $fields = explode(':', $header, 2);
+            if( count($fields) !== 2) {
+                continue;
             }
-            return $len;
-        });
-        // set filename
+            $name = strtolower(trim($fields[0]));
+            $value = trim($fields[1]);
+            if($name == 'content-type' ||
+                $name == 'content-length' ||
+                $name == 'last-modified' ||
+                $name == 'cache-control' ||
+                $name == 'expires') {
+                $headers[$name] = $value;
+            }
+        }
         $headers['content-disposition'] = 'inline; filename="' . $filename . '"';
         return array(
-            $headers, $body
+            $headers, $stream
         );
     }
 
-    private function convertImage(string $data, string $format, string $out_file) {
+    private function convertFormat($stream, string $format) {
         // load image
-        $data = 'data://text/plain;base64,' . base64_encode($data);
+        $data = 'data://text/plain;base64,' . base64_encode( stream_get_contents($stream) );
         $image = imagecreatefromwebp($data);
         // convert to format
+        $out_file = tempnam(sys_get_temp_dir(), 'mhg_');
         switch ($format) {
             case self::FormatJpeg:
             case self::FormatJpg:
-                return imagejpeg($image, $out_file, self::JpegQuality);
+                imagejpeg($image, $out_file, self::JpegQuality);
+                break;
             case self::FormatGif:
-                return imagegif($image, $out_file);
+                imagegif($image, $out_file);
+                break;
             case self::FormatPng:
-                return imagepng($image, $out_file);
-            default:
-                return false;
+                imagepng($image, $out_file);
+                break;
         }
+        $data = file_get_contents($out_file);
+        unlink($out_file);
+        return $data;
     }
 
 }
