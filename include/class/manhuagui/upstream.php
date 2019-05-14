@@ -57,8 +57,10 @@ class Upstream implements \Upstream {
         // convert format
         if ($format != '') {
             $stream = $this->convertFormat($stream, $format);
-            // update content-type
+            // update headers
             $headers['content-type'] = 'image/' . $format;
+            $headers['content-length'] = strlen($stream);
+            // new filename
             $filename = $book_id . '_' . $chapter_id . '_' . ($page + 1) . '.' . $format;
             $headers['content-disposition'] = 'inline; filename="' . $filename . '"';
         }
