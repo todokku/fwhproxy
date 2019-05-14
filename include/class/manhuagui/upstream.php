@@ -5,11 +5,19 @@ namespace ManHuaGui;
 use LZString\Base64Decoder;
 use \HTTP;
 
-class Upstream implements \Upstream {
+class Upstream implements \Upstream
+{
 
     private const JsPattern = '/}\(\'([^\']+)\',\d+,\d+,\'([^\']+)\'.*\)/';
     private const KeyBaseChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
     private const ImageHost = "https://us.hamreus.com";
+
+    private const FormatJpeg = 'jpeg';
+    private const FormatJpg = 'jpg';
+    private const FormatGif = 'gif';
+    private const FormatPng = 'png';
+    private const SupportedFormats = array(self::FormatJpg, self::FormatJpeg, self::FormatGif, self::FormatPng);
+    private const JpegQuality = 80;
 
     /**
      * @var DBA
@@ -25,19 +33,37 @@ class Upstream implements \Upstream {
     public function fetch(array $args) {
         $book_id = intval($args['book_id']);
         $chapter_id = intval($args['chapter_id']);
+        // optional parameter - page
         $page = array_key_exists('page', $args) ? intval($args['page']) - 1 : 0;
-        if($page < 0) {
+        if ($page < 0) {
             $page = 0;
         }
+        // optional parameter - format
+        $format = array_key_exists('format', $args) ? $args['format'] : '';
+        if (!in_array($format, self::SupportedFormats)) {
+            $format = '';
+        } elseif ($format == self::FormatJpg) {
+            $format = self::FormatJpeg;
+        }
+
         // get comic data
         $data = $this->dba->loadData($book_id, $chapter_id);
-        if($data === null) {
+        if ($data === null) {
             $data = $this->fetchData($book_id, $chapter_id);
             $this->dba->storeData($book_id, $chapter_id, $data);
         }
         $data = json_decode($data, true);
-        // download image
-        return $this->download($data, $page);
+        // download orignal image
+        list($headers, $body) = $this->download($data, $page);
+        if ($format != '') {
+            $out_file = tempnam(sys_get_temp_dir(), 'mhg_');
+            $this->convertImage($body, $format, $out_file);
+            // update content-type
+            $headers['content-type'] = 'image/' . $format;
+            $headers['x-temp-file'] = $out_file;
+            $body = file_get_contents($out_file);
+        }
+        return array($headers, $body);
     }
 
     private function fetchData($book_id, $chapter_id) {
@@ -58,7 +84,7 @@ class Upstream implements \Upstream {
         $dict = array();
         foreach ($data as $index => $value) {
             $key = self::encodeKey($index);
-            if(empty($value)) {
+            if (empty($value)) {
                 $dict[$key] = $key;
             } else {
                 $dict[$key] = $value;
@@ -76,11 +102,11 @@ class Upstream implements \Upstream {
     }
 
     private static function encodeKey($index) {
-        if($index === 0) {
+        if ($index === 0) {
             return "0";
         }
         $result = '';
-        while($index !== 0) {
+        while ($index !== 0) {
             $digit = $index % 62;
             $result = self::KeyBaseChars[$digit] . $result;
             $index = ($index - $digit) / 62;
@@ -89,7 +115,7 @@ class Upstream implements \Upstream {
     }
 
     private function download($data, $page) {
-        $filename = $data['files'][ $page % $data['len'] ];
+        $filename = $data['files'][$page % $data['len']];
         $image_url = self::ImageHost . $data['path'] . $filename . '?' .
             http_build_query(array(
                 'cid' => $data['cid'],
@@ -102,25 +128,43 @@ class Upstream implements \Upstream {
         ), function ($ch, $raw_header) use (&$headers) {
             $len = strlen($raw_header);
             $fields = explode(':', $raw_header, 2);
-            if(count($fields) == 2) {
-                $name = trim($fields[0]);
+            if (count($fields) == 2) {
+                $name = strtolower(trim($fields[0]));
                 $value = trim($fields[1]);
                 // Store specified headers
-                if(strcasecmp($name, 'content-type') === 0 ||
-                    strcasecmp($name, 'content-length') === 0 ||
-                    strcasecmp($name, 'last-modified') === 0 ||
-                    strcasecmp($name, 'cache-control') === 0 ||
-                    strcasecmp($name, 'expires') === 0) {
+                if (strcmp($name, 'content-type') === 0 ||
+                    strcmp($name, 'content-length') === 0 ||
+                    strcmp($name, 'last-modified') === 0 ||
+                    strcmp($name, 'cache-control') === 0 ||
+                    strcmp($name, 'expires') === 0) {
                     $headers[$name] = $value;
                 }
             }
             return $len;
         });
         // set filename
-        $headers['Content-Disposition'] = 'inline; filename="' . $filename . '"';
+        $headers['content-disposition'] = 'inline; filename="' . $filename . '"';
         return array(
             $headers, $body
         );
+    }
+
+    private function convertImage(string $data, string $format, string $out_file) {
+        // load image
+        $data = 'data://text/plain;base64,' . base64_encode($data);
+        $image = imagecreatefromwebp($data);
+        // convert to format
+        switch ($format) {
+            case self::FormatJpeg:
+            case self::FormatJpg:
+                return imagejpeg($image, $out_file, self::JpegQuality);
+            case self::FormatGif:
+                return imagegif($image, $out_file);
+            case self::FormatPng:
+                return imagepng($image, $out_file);
+            default:
+                return false;
+        }
     }
 
 }

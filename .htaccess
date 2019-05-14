@@ -1,9 +1,11 @@
 Options -Indexes
 
 RewriteEngine On
+# Pixiv url-rewriting
 RewriteRule ^pixiv/(\d+)$ pixiv.php?illust_id=$1 [QSA]
 RewriteRule ^pixiv/(\d+)/(medium|large|auto)$ pixiv.php?illust_id=$1&size=$2 [QSA]
 RewriteRule ^pixiv/(\d+)/(\d+)$ pixiv.php?illust_id=$1&page=$2 [QSA]
 RewriteRule ^pixiv/(\d+)/(\d+)/(medium|large|auto)$ pixiv.php?illust_id=$1&page=$2&size=$3 [QSA]
-RewriteRule ^manhuagui/(\d+)/(\d+)$ manhuagui.php?book_id=$1&chapter_id=$2 [QSA]
+# ManHuaGui url-rewriting
 RewriteRule ^manhuagui/(\d+)/(\d+)/(\d+)$ manhuagui.php?book_id=$1&chapter_id=$2&page=$3 [QSA]
+RewriteRule ^manhuagui/(\d+)/(\d+)/(\d+).(jpeg|jpg|gif|png)$ manhuagui.php?book_id=$1&chapter_id=$2&page=$3&format=$4 [QSA]
