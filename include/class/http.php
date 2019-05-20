@@ -4,7 +4,7 @@ abstract class HTTP {
 
     const UserAgent = 'FWHAgent/1.0';
 
-    private static function setCommonOpts($ch, $headers) {
+    private static function setStandardOpts($ch, $headers) {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_USERAGENT, self::UserAgent);
         if($headers !== null && count($headers) !== 0) {
@@ -29,7 +29,7 @@ abstract class HTTP {
         $out_headers = array();
         $ch = curl_init($url);
         try{
-            self::setCommonOpts($ch, $headers);
+            self::setStandardOpts($ch, $headers);
             curl_setopt($ch, CURLOPT_NOBODY, true);
             curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($ch, $raw_header) use (&$out_headers) {
                 $len = strlen($raw_header);
@@ -59,7 +59,7 @@ abstract class HTTP {
     public static function get(string $url, array $headers = null, $header_func = null) {
         $ch = curl_init($url);
         try{
-            self::setCommonOpts($ch, $headers);
+            self::setStandardOpts($ch, $headers);
             if($header_func !== null) {
                 curl_setopt($ch, CURLOPT_HEADERFUNCTION, $header_func);
             }
@@ -81,10 +81,38 @@ abstract class HTTP {
     public static function post(string $url, array $params, array $headers = null) {
         $ch = curl_init($url);
         try {
+            // encode parameters
+            $data = http_build_query($params);
+            if($headers === null) {
+                $headers = array();
+            }
+            $headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            $headers['Content-Length'] = strlen($data);
+            self::setStandardOpts($ch, $headers);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+            $resp = curl_exec($ch);
+        } finally {
+            curl_close($ch);
+        }
+        return $resp;
+    }
+
+    /**
+     * Perform a POST request for uploading.
+     *
+     * @param string $url
+     * @param array $form
+     * @param array|null $headers
+     * @return bool|string
+     */
+    public static function upload(string $url, array $form, array $headers = null) {
+        $ch = curl_init($url);
+        try {
+            self::setStandardOpts($ch, $headers);
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_SAFE_UPLOAD, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
-            self::setCommonOpts($ch, $headers);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $form);
             $resp = curl_exec($ch);
         } finally {
             curl_close($ch);

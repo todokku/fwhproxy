@@ -3,9 +3,10 @@
 class Telegraph {
 
     private const UploadUrl = 'https://telegra.ph/upload';
+    private const RefererUrl = 'https://telegra.ph/';
 
     /**
-     * Upload file to telegraph
+     * Upload a file to telegraph
      *
      * @param string $filename
      * @param string|null $mimetype
@@ -19,7 +20,10 @@ class Telegraph {
         $form = array(
             'file' => $curlfile
         );
-        $resp = HTTP::post(self::UploadUrl, $form, null);
+        $headers = array(
+            'Referer' => self::RefererUrl
+        );
+        $resp = HTTP::upload(self::UploadUrl, $form, $headers);
         if($resp === false) {
             return null;
         } else {
@@ -29,7 +33,7 @@ class Telegraph {
     }
 
     /**
-     * Upload stream as a file to telegraph
+     * Upload a stream as file to telegraph
      *
      * @param resource $stream
      * @return string|null
