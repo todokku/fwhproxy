@@ -9,12 +9,14 @@ $dba = new Pixiv\DBA(_MYSQL_HOST, _MYSQL_USERNAME, _MYSQL_PASSWORD, _MYSQL_DATAB
 try {
     $upstream = new Pixiv\Upstream($dba, _PIXIV_NEED_OAUTH);
     // fetch illust image
-    list($headers, $body) = $upstream->fetch($_GET);
-    // Setup output
-    foreach ($headers as $name => $value) {
-        $renderer->add_header($name, $value);
-    }
-    $renderer->set_body($body);
+    $metadata = new Metadata();
+    $image = $upstream->download($_GET, $metadata);
+    // set header
+    $renderer->add_header('Content-Type', $metadata->mimetype);
+    $renderer->add_header('Content-Length', $metadata->size);
+    $renderer->add_header('Content-Disposition', 'inline; filename="' . $metadata->filename . '"');
+    // set body
+    $renderer->set_body($image);
 } catch (Exception $e) {
     $renderer->set_status_code(500);
     $renderer->set_body($e->getMessage());

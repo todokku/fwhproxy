@@ -2,8 +2,9 @@
 
 namespace Pixiv;
 
-use \Exception;
-use \HTTP;
+use Exception;
+use HTTP;
+use Metadata;
 
 class Upstream implements \Upstream {
 
@@ -15,10 +16,6 @@ class Upstream implements \Upstream {
     private const ClientSecret = 'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj';
     // Default access_token with limited scopes
     private const BuiltinAccessToken = '8mMXXWT9iuwdJvsVIvQsFYDwuZpRCMePeyagSh30ZdU';
-    // Illust size
-    private const SizeLarge = 'large';
-    private const SizeMedium = 'medium';
-    private const SizeAuto = 'auto';
 
     private const HeaderContentLength = 'content-length';
     private const MaxAutoSize = 5 * 1024 * 1024;
@@ -65,40 +62,41 @@ class Upstream implements \Upstream {
         $this->dba->saveConfig($config);
     }
 
-    public function fetch(array $args) {
-        // Get parameters
-        $illust_id = intval($args['illust_id'], 10);
-        $page = array_key_exists('page', $args) ? intval($args['page'], 10) : 1;
-        // Prior to fetch large size
-        $size = array_key_exists('size', $args) ? strtolower($args['size']) : self::SizeLarge;
-        if($size != self::SizeMedium && $size != self::SizeLarge && $size != self::SizeAuto) {
-            $size = self::SizeLarge;
-        }
+    public function download(array $args, Metadata &$metadata) {
+        // parse args
+        $opts = Options::parse($args);
 
-        // Init oauth
-        $this->initOauth();
-
-        // Get illust info
-        $info = $this->fetchInfo($illust_id);
-        $image_urls = $info['image_urls'];
-        if($info['metadata'] !== null) {
-            $page_index = ($page - 1) % $info['page_count'];
-            $image_urls = $info['metadata']['pages'][$page_index]['image_urls'];
+        // get illust data
+        $data = $this->fetchData($opts->illust_id);
+        // get image urls
+        $image_urls = $data['image_urls'];
+        if($data['metadata'] !== null) {
+            $page_index = ($opts->page - 1) % $data['page_count'];
+            $image_urls = $data['metadata']['pages'][$page_index]['image_urls'];
         }
-        // Select image url
-        if($size == self::SizeAuto) {
-            $image_url = $image_urls[self::SizeLarge];
-            $large_size = $this->getImageSize($image_url);
-            if($large_size > self::MaxAutoSize) {
-                $image_url = $image_urls[self::SizeMedium];
-            }
-        } else {
-            $image_url = $image_urls[$size];
+        // select image url
+        if($opts->size == Options::SizeAuto) {
+            $opts->size = $this->getAutoImageSize($image_urls);
         }
-        // return
-        return $this->getStream($image_url);
+        $image_url = $image_urls[$opts->size];
+        return $this->getImage($image_url, $metadata);
     }
 
+    private function fetchData(int $illust_id) {
+        // init oauth
+        $this->initOauth();
+
+        // fetch all available sizes
+        $info_url = 'https://public-api.secure.pixiv.net/v1/works/'.$illust_id.'.json?image_sizes=medium%2Clarge';
+        $resp = HTTP::get($info_url, array(
+            'Authorization' => 'Bearer '.$this->access_token
+        ));
+        $result = json_decode($resp, true);
+        if(array_key_exists('has_error', $result) && $result['has_error']) {
+            throw new Exception($result['errors']['system']['message']);
+        }
+        return $result['response'][0];
+    }
     private function initOauth() {
         if(!$this->need_oauth || $this->dba === null) {
             return;
@@ -115,7 +113,6 @@ class Upstream implements \Upstream {
         }
         $this->access_token = $config['access_token'];
     }
-
     private function refreshToken($refresh_token) {
         $data = array(
             'get_secure_url' => '1',
@@ -124,7 +121,7 @@ class Upstream implements \Upstream {
             'grant_type'     => 'refresh_token',
             'refresh_token'  => $refresh_token
         );
-        $resp = HTTP::post(self::TokenUrl, $data, null);
+        $resp = HTTP::post(self::TokenUrl, $data);
         $result = json_decode($resp, true);
         if($result['has_error']) {
             throw new Exception($result['errors']['system']['message']);
@@ -136,62 +133,30 @@ class Upstream implements \Upstream {
         );
     }
 
-    private function fetchInfo($illust_id) {
-        // fetch all available sizes
-        $info_url = 'https://public-api.secure.pixiv.net/v1/works/'.$illust_id.'.json?image_sizes=medium%2Clarge';
-        $resp = HTTP::get($info_url, array(
-            'Authorization' => 'Bearer '.$this->access_token
-        ), null);
-        $result = json_decode($resp, true);
-        if(array_key_exists('has_error', $result) && $result['has_error']) {
-            throw new Exception($result['errors']['system']['message']);
-        }
-        return $result['response'][0];
-    }
-
-    private function getImageSize($image_url) {
-        $headers = HTTP::head($image_url, array(
+    private function getAutoImageSize(array $image_urls): string {
+        // check the large file size
+        $headers = HTTP::head($image_urls[Options::SizeLarge], array(
             'Referer' => self::RefererUrl
         ));
-        return array_key_exists(self::HeaderContentLength, $headers) ?
-            intval($headers[self::HeaderContentLength]) : -1;
+        $filesize = intval($headers[self::HeaderContentLength], 10);
+        // determind size
+        return $filesize < self::MaxAutoSize ? Options::SizeLarge : Options::SizeMedium;
     }
 
-    private function getStream($image_url) {
-        // Open URL stream
-        $context = stream_context_create(array(
-            'http' => array(
-                'protocol_version' => 1.1,
-                'user_agent' => HTTP::UserAgent,
-                'header' => 'Referer: '.self::RefererUrl
-            )
-        ));
-        $stream = fopen($image_url, 'r', null, $context);
-
-        // Get headers
+    private function getImage(string $image_url, Metadata &$metadata): string {
+        // download image
         $headers = array();
-        $meta = stream_get_meta_data($stream);
-        foreach ($meta['wrapper_data'] as $header) {
-            $fields = explode(':', $header, 2);
-            if( count($fields) !== 2) {
-                continue;
-            }
-            $name = strtolower(trim($fields[0]));
-            $value = trim($fields[1]);
-            if($name == 'content-type' ||
-                $name == 'content-length' ||
-                $name == 'last-modified' ||
-                $name == 'cache-control' ||
-                $name == 'expires') {
-                $headers[$name] = $value;
-            }
+        $image = HTTP::get($image_url, array(
+            'Referer' => self::RefererUrl
+        ), $headers);
+        if($image === false) {
+            return null;
         }
-        $filename = basename( parse_url($image_url, PHP_URL_PATH) );
-        $headers['content-disposition'] = 'inline; filename="' . $filename . '"';
-
-        return array(
-            $headers, $stream
-        );
+        $metadata->mimetype = $headers['content-type'];
+        $metadata->size = array_key_exists('content-length', $headers) ?
+            intval($headers['content-length']) : strlen($image);
+        $metadata->filename = basename( parse_url($image_url, PHP_URL_PATH) );
+        return $image;
     }
 
 }
