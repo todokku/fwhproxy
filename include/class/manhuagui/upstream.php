@@ -128,7 +128,8 @@ class Upstream implements \Upstream {
         // fill metadata
         $metadata->filename = $filename;
         $metadata->mimetype = $headers['content-type'];
-        $metadata->size = intval($headers['content-length']);
+        $metadata->size = array_key_exists('content-length', $headers) ?
+            intval($headers['content-length']) : strlen($image);
         return $image;
     }
 
