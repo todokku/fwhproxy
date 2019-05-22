@@ -33,16 +33,23 @@ abstract class Telegraph {
     }
 
     /**
-     * Upload blob to telegraph
+     * Upload data to telegraph
      *
-     * @param string $blob
-     * @param string|null $mimetype
+     * @param string|resource $data <p>
+     * Data to upload, can be string or stream. When pass a stream, it will be closed after using.
+     * </p>
+     * @param string|null $mimetype <p>
+     * The mimetype of the data. If pass null, will be detected by mime_content_type() function.
+     * </p>
      * @return string|null
      */
-    public static function uploadBlob(string $blob, ?string $mimetype = null): ?string {
+    public static function uploadData($data, ?string $mimetype = null): ?string {
         // write blob to tempfile
         $tmpfile = tempnam(sys_get_temp_dir(), 'upload_');
-        file_put_contents($tmpfile, $blob);
+        file_put_contents($tmpfile, $data);
+        if(gettype($data) === 'resource') {
+            fclose($data);
+        }
         try {
             // upload file
             $result = self::uploadFile($tmpfile, $mimetype);
