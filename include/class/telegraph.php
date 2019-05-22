@@ -1,6 +1,6 @@
 <?php
 
-class Telegraph {
+abstract class Telegraph {
 
     private const UploadUrl = 'https://telegra.ph/upload';
     private const RefererUrl = 'https://telegra.ph/';

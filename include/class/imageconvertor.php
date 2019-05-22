@@ -1,6 +1,6 @@
 <?php
 
-class ImageConvertor {
+abstract class ImageConvertor {
 
     private const DefaultJpegQuality = 80;
 
