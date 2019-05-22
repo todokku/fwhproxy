@@ -33,19 +33,19 @@ abstract class Telegraph {
     }
 
     /**
-     * Upload a stream as file to telegraph
+     * Upload blob to telegraph
      *
-     * @param resource $stream
+     * @param string $blob
+     * @param string|null $mimetype
      * @return string|null
      */
-    public static function uploadStream(resource $stream): ?string {
-        // write stream to tempfile
+    public static function uploadBlob(string $blob, ?string $mimetype = null): ?string {
+        // write blob to tempfile
         $tmpfile = tempnam(sys_get_temp_dir(), 'upload_');
-        file_put_contents($tmpfile, $stream);
-        fclose($stream);
+        file_put_contents($tmpfile, $blob);
         try {
             // upload file
-            $result = self::uploadFile($tmpfile);
+            $result = self::uploadFile($tmpfile, $mimetype);
         } finally {
             // remove tempfile
             unlink($tmpfile);
