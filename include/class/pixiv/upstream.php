@@ -79,7 +79,7 @@ class Upstream implements \Upstream {
             $opts->size = $this->getAutoImageSize($image_urls);
         }
         $image_url = $image_urls[$opts->size];
-        return $this->getImage($image_url, $metadata);
+        return $this->getImageStream($image_url, $metadata);
     }
 
     private function fetchData(int $illust_id) {
@@ -123,7 +123,7 @@ class Upstream implements \Upstream {
         );
         $resp = HTTP::post(self::TokenUrl, $data);
         $result = json_decode($resp, true);
-        if($result['has_error']) {
+        if(array_key_exists('has_error', $result) && $result['has_error']) {
             throw new Exception($result['errors']['system']['message']);
         }
         return array(
@@ -143,20 +143,33 @@ class Upstream implements \Upstream {
         return $filesize < self::MaxAutoSize ? Options::SizeLarge : Options::SizeMedium;
     }
 
-    private function getImage(string $image_url, Metadata &$metadata): string {
-        // download image
-        $headers = array();
-        $image = HTTP::get($image_url, array(
+    private function getImageStream(string $image_url, Metadata &$metadata) {
+        // open stream
+        $out_headers = array();
+        $stream = HTTP::stream($image_url, array(
             'Referer' => self::RefererUrl
-        ), $headers);
-        if($image === false) {
-            return null;
-        }
-        $metadata->mimetype = $headers['content-type'];
-        $metadata->size = array_key_exists('content-length', $headers) ?
-            intval($headers['content-length']) : strlen($image);
+        ), $out_headers);
+        // fill metadata
         $metadata->filename = basename( parse_url($image_url, PHP_URL_PATH) );
-        return $image;
+        $meta = stream_get_meta_data($stream);
+        foreach ($meta['wrapper_data'] as $header) {
+            $fields = explode(':', $header, 2);
+            if(count($fields) < 2) {
+                continue;
+            }
+            $name = strtolower(trim($fields[0]));
+            $value = trim($fields[1]);
+
+            switch ($name) {
+                case 'content-type':
+                    $metadata->mimetype = $value;
+                    break;
+                case 'content-length':
+                    $metadata->size = intval($value, 10);
+                    break;
+            }
+        }
+        return $stream;
     }
 
 }

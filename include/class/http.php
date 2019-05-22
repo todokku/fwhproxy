@@ -8,15 +8,15 @@ abstract class HTTP {
      * Set common options
      *
      * @param resource $ch
-     * @param array|null $headers
+     * @param array|null $in_headers
      * @param array|null $out_headers
      */
-    private static function setStandardOpts($ch, array $headers = null, array &$out_headers = null) {
+    private static function setStandardOpts($ch, array $in_headers = null, array &$out_headers = null) {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_USERAGENT, self::UserAgent);
-        if($headers !== null && count($headers) !== 0) {
+        if($in_headers !== null && count($in_headers) !== 0) {
             $hs = array();
-            foreach ($headers as $name => $value) {
+            foreach ($in_headers as $name => $value) {
                 $hs[] = $name . ': '. $value;
             }
             curl_setopt($ch, CURLOPT_HTTPHEADER, $hs);
@@ -61,14 +61,14 @@ abstract class HTTP {
      * Perform a GET request to target URL.
      *
      * @param string $url
-     * @param array|null $headers
+     * @param array|null $in_headers
      * @param array|null $out_headers
      * @return bool|string
      */
-    public static function get(string $url, array $headers = null, array &$out_headers = null) {
+    public static function get(string $url, array $in_headers = null, array &$out_headers = null) {
         $ch = curl_init($url);
         try{
-            self::setStandardOpts($ch, $headers, $out_headers);
+            self::setStandardOpts($ch, $in_headers, $out_headers);
             $resp = curl_exec($ch);
         } finally {
             curl_close($ch);
@@ -124,6 +124,45 @@ abstract class HTTP {
             curl_close($ch);
         }
         return $resp;
+    }
+
+    /**
+     * Open HTTP stream
+     *
+     * @param string $url
+     * @param array|null $in_headers
+     * @param array|null $out_headers
+     * @return resource
+     */
+    public static function stream(string $url, array $in_headers = null, array &$out_headers = null) {
+        // prepare context
+        $http_opts = array(
+            'protocol_version' => 1.1,
+            'user_agent' => self::UserAgent
+        );
+        if($in_headers !== null && count($in_headers) !== 0) {
+            $http_opts['header'] = array();
+            foreach ($in_headers as $name => $value) {
+                array_push($http_opts['header'], $name . ': '. $value);
+            }
+        }
+        $context = stream_context_create( array('http' => $http_opts) );
+        // open stream
+        $stream = fopen($url, 'r', null, $context);
+        // fill response header
+        if($out_headers !== null) {
+            $meta = stream_get_meta_data($stream);
+            foreach ($meta['wrapper_data'] as $raw_header) {
+                $fields = explode(':', $raw_header, 2);
+                if(count($fields) < 2) {
+                    continue;
+                }
+                $name = strtolower(trim($fields[0]));
+                $value = trim($fields[1]);
+                $out_headers[$name] = $value;
+            }
+        }
+        return $stream;
     }
 
 }
