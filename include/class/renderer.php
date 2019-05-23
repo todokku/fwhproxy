@@ -44,21 +44,11 @@ class Renderer {
                 fwrite($out, $this->body);
                 break;
             case 'resource':
-                self::copy_stream($this->body, $out, true);
+                StreamUtils::transfer($out, $this->body);
                 break;
         }
         fclose($out);
 
-    }
-
-    private static function copy_stream($src, $dest, bool $auto_close=false) {
-        while(!feof($src)) {
-            fwrite($dest, fread($src, 8192));
-            fflush($dest);
-        }
-        if($auto_close) {
-            fclose($src);
-        }
     }
 
 }

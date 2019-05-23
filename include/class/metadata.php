@@ -1,6 +1,6 @@
 <?php
 
-class Metadata {
+final class Metadata {
 
     private const DefaultMimetype = "application/octet-stream";
 
@@ -17,6 +17,6 @@ class Metadata {
     /**
      * @var int
      */
-    public $size;
+    public $size = 0;
 
 }
