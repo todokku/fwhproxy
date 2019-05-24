@@ -2,7 +2,7 @@
 
 namespace ManHuaGui;
 
-class Options {
+class Options extends \Options {
 
     public const FormatJpeg = "jpeg";
     public const FormatJpg = "jpg";
@@ -51,6 +51,14 @@ class Options {
         $opts->format = $format;
 
         return $opts;
+    }
+
+    public function cacheKey(): string {
+        return join('_', array(
+            'mhg',
+            $this->book_id, $this->chapter_id,
+            $this->page, $this->format
+        ));
     }
 
 }

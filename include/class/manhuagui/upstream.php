@@ -24,9 +24,12 @@ class Upstream implements \Upstream {
 
     public function setup(array $args) {}
 
-    public function download(array $args, Metadata &$metadata) {
-        // parse arguments
-        $opts = Options::parse($args);
+    public function download(\Options $opts, Metadata &$metadata) {
+        function cast($base):Options {
+            return $base;
+        }
+        $opts = cast($opts);
+
         // get chapter data
         $data = $this->getData($opts->book_id, $opts->chapter_id);
         if($data === null){

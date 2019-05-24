@@ -62,10 +62,11 @@ class Upstream implements \Upstream {
         $this->dba->saveConfig($config);
     }
 
-    public function download(array $args, Metadata &$metadata) {
-        // parse args
-        $opts = Options::parse($args);
-
+    public function download(\Options $opts, Metadata &$metadata) {
+        function cast($base):Options {
+            return $base;
+        }
+        $opts = cast($opts);
         // get illust data
         $data = $this->fetchData($opts->illust_id);
         // get image urls

@@ -2,7 +2,7 @@
 
 namespace Pixiv;
 
-class Options {
+class Options extends \Options {
 
     public const SizeLarge = 'large';
     public const SizeMedium = 'medium';
@@ -36,6 +36,12 @@ class Options {
         }
 
         return $opts;
+    }
+
+    public function cacheKey(): string {
+        return join('_', array(
+            'pixiv', $this->illust_id, $this->page, $this->size
+        ));
     }
 
 }

@@ -7,10 +7,10 @@ interface Upstream {
     /**
      * Download content from upstream.
      *
-     * @param array $args
+     * @param $opts
      * @param Metadata $metadata - Receive image metadata
      * @return mixed
      */
-    public function download(array $args, Metadata &$metadata);
+    public function download(Options $opts, Metadata &$metadata);
 
 }
