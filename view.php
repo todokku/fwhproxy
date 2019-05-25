@@ -3,25 +3,28 @@
 require_once "include/config.inc.php";
 require_once "include/classloader.php";
 
+// start database session
+$dbsession = new DB\Session();
+
 // prepare render
 $renderer = new Renderer();
 try {
     // check source
     $source = $_GET['source'];
     if(strcasecmp('pixiv', $source) === 0) {
-        $dba = new Pixiv\DBA(_MYSQL_HOST, _MYSQL_USERNAME, _MYSQL_PASSWORD, _MYSQL_DATABASE);
-        $upstream = new Pixiv\Upstream($dba, _PIXIV_NEED_OAUTH);
+        $opts = Pixiv\Options::parse($_GET);
+        $upstream = new Pixiv\Upstream($dbsession);
     } elseif (strcasecmp('manhuagui', $source) === 0) {
-        $dba = new ManHuaGui\DBA(_MYSQL_HOST, _MYSQL_USERNAME, _MYSQL_PASSWORD, _MYSQL_DATABASE);
-        $upstream = new ManHuaGui\Upstream($dba);
+        $opts = ManHuaGui\Options::parse($_GET);
+        $upstream = new ManHuaGui\Upstream($dbsession);
     } else {
-        throw new Exception('Unsupported Source!');
+        throw new ProxyException('Unsupported Source', 400);
     }
     // download image
     $metadata = new Metadata();
-    $image = $upstream->download($_GET, $metadata);
+    $image = $upstream->download($opts, $metadata);
     if($image === null) {
-        throw new Exception('No Such Image!');
+        throw new ProxyException('Image No Found', 404);
     }
     // set header
     $renderer->add_header('Content-Type', $metadata->mimetype);
@@ -30,11 +33,8 @@ try {
     // set body
     $renderer->set_body($image);
 } catch (Exception $e) {
-    $renderer->set_status_code(500);
     $renderer->set_body($e->getMessage());
 } finally {
-    if($dba) {
-        $dba->close();
-    }
+    $dbsession->close();
 }
 $renderer->render();

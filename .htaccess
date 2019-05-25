@@ -10,6 +10,6 @@ RewriteRule ^pixiv/(\d+)/(\d+)/(medium|large|auto)$ view.php?source=pixiv&illust
 RewriteRule ^manhuagui/(\d+)/(\d+)/(\d+)$ view.php?source=manhuagui&book_id=$1&chapter_id=$2&page=$3 [QSA]
 RewriteRule ^manhuagui/(\d+)/(\d+)/(\d+).(jpeg|jpg|gif|png)$ view.php?source=manhuagui&book_id=$1&chapter_id=$2&page=$3&format=$4 [QSA]
 # Teleport
-RewriteRule ^shift/pixiv/(\d+)$ shift.php?source=pixiv&size=large&illust_id=$1 [QSA]
-RewriteRule ^shift/pixiv/(\d+)/(\d+)$ shift.php?source=pixiv&size=large&illust_id=$1&page=$2 [QSA]
-RewriteRule ^shift/manhuagui/(\d+)/(\d+)/(\d+).(jpeg|jpg|gif|png)$ shift.php?source=manhuagui&book_id=$1&chapter_id=$2&page=$3&format=$4 [QSA]
+RewriteRule ^xload/pixiv/(\d+)$ xload.php?source=pixiv&size=large&illust_id=$1 [QSA]
+RewriteRule ^xload/pixiv/(\d+)/(\d+)$ xload.php?source=pixiv&size=large&illust_id=$1&page=$2 [QSA]
+RewriteRule ^xload/manhuagui/(\d+)/(\d+)/(\d+).(jpeg|jpg|gif|png)$ xload.php?source=manhuagui&book_id=$1&chapter_id=$2&page=$3&format=$4 [QSA]

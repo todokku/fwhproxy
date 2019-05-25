@@ -2,71 +2,44 @@
 
 namespace Pixiv;
 
+use DB\ProxyCache;
+use DB\Session;
 use Exception;
 use HTTP;
 use Metadata;
+use ProxyException;
 
 class Upstream implements \Upstream {
 
-    // API url
-    private const TokenUrl = 'https://oauth.secure.pixiv.net/auth/token';
-    private const RefererUrl = 'https://app-api.pixiv.net/';
     // OAuth settings
     private const ClientId = 'MOBrBDS8blbauoSck0ZfDbtuzpyT';
     private const ClientSecret = 'lsACyCD94FhDUtGTXi3QzcFE2uU1hqtDaKeqrdwj';
     // Default access_token with limited scopes
     private const BuiltinAccessToken = '8mMXXWT9iuwdJvsVIvQsFYDwuZpRCMePeyagSh30ZdU';
 
+    private const OAuthCacheKey = 'pixiv_token';
+
+    // API url
+    private const TokenUrl = 'https://oauth.secure.pixiv.net/auth/token';
+    private const RefererUrl = 'https://app-api.pixiv.net/';
+
     private const HeaderContentLength = 'content-length';
     private const MaxAutoSize = 5 * 1024 * 1024;
 
-    private $need_oauth = false;
-    private $dba;
-
-    // The access_token using for call API
+    private $cache = null;
     private $access_token = self::BuiltinAccessToken;
 
-    public function __construct(?DBA $dba, $need_oauth=false) {
-        $this->dba = $dba;
-        $this->need_oauth = $need_oauth;
-    }
-
-    public function setup(array $args) {
-        if(!$this->need_oauth) {
-            return;
+    public function __construct(Session $session) {
+        if($session !== null) {
+            $this->cache = new ProxyCache($session);
         }
-        if(!array_key_exists('username', $args) || !array_key_exists('password', $args)) {
-            throw new Exception('You should provide username and password!');
-        }
-        $username = $args['username'];
-        $password = $args['password'];
-        // Login to grant access token
-        $resp = HTTP::post(self::TokenUrl, array(
-            'get_secure_url' => '1',
-            'client_id'      => self::ClientId,
-            'client_secret'  => self::ClientSecret,
-            'grant_type'     => 'password',
-            'username'       => $username,
-            'password'       => $password,
-        ), null);
-        $result = json_decode($resp, true);
-        if($result['has_error']) {
-            throw new Exception($result['errors']['system']['message']);
-        }
-        // Store config
-        $config = array(
-            'access_token' => $result['response']['access_token'],
-            'refresh_token' => $result['response']['refresh_token'],
-            'token_expiry' => $result['response']['expires_in'] + time()
-        );
-        $this->dba->saveConfig($config);
     }
 
     public function download(\Options $opts, Metadata &$metadata) {
-        function cast($base):Options {
-            return $base;
+        if(!($opts instanceof Options)) {
+            throw new ProxyException("Bad Request", 400);
         }
-        $opts = cast($opts);
+
         // get illust data
         $data = $this->fetchData($opts->illust_id);
         // get image urls
@@ -99,39 +72,43 @@ class Upstream implements \Upstream {
         return $result['response'][0];
     }
     private function initOauth() {
-        if(!$this->need_oauth || $this->dba === null) {
+        if(!(_PIXIV_NEED_OAUTH) || $this->cache === null) {
             return;
         }
-        // Load config from database
-        $config = $this->dba->loadConfig();
-        if($config === null) {
-            return;
+        // load oauth data from cache
+        $data = $this->cache->get(self::OAuthCacheKey);
+        if($data !== null) {
+            $data = json_decode($data, true);
         }
-        // refresh token if need
-        if(empty($config['access_token']) || $config['token_expiry'] < time()) {
-            $config = $this->refreshToken($config['refresh_token']);
-            $this->dba->saveConfig($config);
+        // check token
+        if($data === null || $data['expiry_time'] < time()) {
+            $data = $this->refreshToken();
+            if($data !== null) {
+                $this->cache->put(self::OAuthCacheKey, json_encode($data));
+                $this->access_token = $data['access_token'];
+            }
+        } else {
+            $this->access_token = $data['access_token'];
         }
-        $this->access_token = $config['access_token'];
     }
-    private function refreshToken($refresh_token) {
+    private function refreshToken() {
         $data = array(
             'get_secure_url' => '1',
             'client_id'      => self::ClientId,
             'client_secret'  => self::ClientSecret,
             'grant_type'     => 'refresh_token',
-            'refresh_token'  => $refresh_token
+            'refresh_token'  => _PIXIV_REFRESH_TOKEN
         );
         $resp = HTTP::post(self::TokenUrl, $data);
         $result = json_decode($resp, true);
         if(array_key_exists('has_error', $result) && $result['has_error']) {
-            throw new Exception($result['errors']['system']['message']);
+            return null;
+        } else {
+            return array(
+                'access_token' => $result['response']['access_token'],
+                'expiry_time' => $result['response']['expires_in'] + time()
+            );
         }
-        return array(
-            'access_token' => $result['response']['access_token'],
-            'refresh_token' => $result['response']['refresh_token'],
-            'token_expiry' => $result['response']['expires_in'] + time()
-        );
     }
 
     private function getAutoImageSize(array $image_urls): string {

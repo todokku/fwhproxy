@@ -2,8 +2,6 @@
 
 interface Upstream {
 
-    public function setup(array $args);
-
     /**
      * Download content from upstream.
      *

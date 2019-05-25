@@ -7,4 +7,5 @@ define("_MYSQL_PASSWORD", "password");
 define("_MYSQL_DATABASE", "database_name");
 
 // Pixiv config
-define('_PIXIV_NEED_OAUTH', true);
+define('_PIXIV_NEED_OAUTH', false);
+define('_PIXIV_REFRESH_TOKEN', '');

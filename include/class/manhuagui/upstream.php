@@ -2,10 +2,13 @@
 
 namespace ManHuaGui;
 
+use DB\ProxyCache;
+use DB\Session;
 use HTTP;
 use ImageConvertor;
 use LZString\Base64Decoder;
 use Metadata;
+use ProxyException;
 
 class Upstream implements \Upstream {
 
@@ -14,21 +17,20 @@ class Upstream implements \Upstream {
     private const ImageHost = "https://us.hamreus.com";
 
     /**
-     * @var DBA
+     * @var ProxyCache
      */
-    private $dba;
+    private $cache = null;
 
-    public function __construct(DBA $dba = null) {
-        $this->dba = $dba;
+    public function __construct(Session $session = null) {
+        if($session !== null) {
+            $this->cache = new ProxyCache($session);
+        }
     }
 
-    public function setup(array $args) {}
-
     public function download(\Options $opts, Metadata &$metadata) {
-        function cast($base):Options {
-            return $base;
+        if(!($opts instanceof Options)) {
+            throw new ProxyException("Bad Arguments", 400);
         }
-        $opts = cast($opts);
 
         // get chapter data
         $data = $this->getData($opts->book_id, $opts->chapter_id);
@@ -51,18 +53,24 @@ class Upstream implements \Upstream {
     }
 
     private function getData($book_id, $chapter_id) {
-        $data = $this->dba === null ? null :
-            $this->dba->loadData($book_id, $chapter_id);
+        $cache_key = join('_', array('mhg', 'data', $book_id, $chapter_id));
+
+        $data = null;
+        // try get chapter data from cache
+        if($this->cache !== null) {
+            $data = $this->cache->get($cache_key);
+        }
+        // parse from upstream
         if($data === null) {
             $data = $this->fetchData($book_id, $chapter_id);
-            if($data !== null && $this->dba !== null) {
-                $this->dba->storeData($book_id, $chapter_id, $data);
+            if($data !== null && $this->cache !== null) {
+                $this->cache->put($cache_key, $data);
             }
         }
-        if($data !== null) {
-            $data = json_decode($data, true);
+        if($data === null) {
+            throw new ProxyException("Bad Request", 400);
         }
-        return $data;
+        return json_decode($data, true);
     }
 
     private function fetchData($book_id, $chapter_id) {
