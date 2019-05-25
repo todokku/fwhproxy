@@ -2,7 +2,7 @@
 
 namespace DB;
 
-class ProxyCache {
+class CacheIO {
 
     private const QuerySQL = "SELECT `data` FROM `cache` WHERE `name`=? LIMIT 1";
     private const InsertSQL = "INSERT INTO `cache`(`name`, `data`, `create_time`) 
@@ -12,9 +12,9 @@ ON DUPLICATE KEY UPDATE `data`=VALUES(`data`), `update_time`=NOW()";
     /**
      * @var Session
      */
-    private $session;
+    private $session = null;
 
-    public function __construct(Session $session) {
+    public function __construct(Session $session = null) {
         $this->session = $session;
     }
 
@@ -25,12 +25,17 @@ ON DUPLICATE KEY UPDATE `data`=VALUES(`data`), `update_time`=NOW()";
      * @return string|null
      */
     public function get(string $key): ?string {
-        $results = $this->session->query(self::QuerySQL, $key);
-        if (count($results) === 0) {
+        if($this->session === null) {
             return null;
         } else {
-            return $results[0]['data'];
+            $results = $this->session->query(self::QuerySQL, $key);
+            if (count($results) === 0) {
+                return null;
+            } else {
+                return $results[0]['data'];
+            }
         }
+
     }
 
     /**
@@ -41,6 +46,9 @@ ON DUPLICATE KEY UPDATE `data`=VALUES(`data`), `update_time`=NOW()";
      * @return bool
      */
     public function put(string $key, string $data): bool {
+        if($this->session === null) {
+            return false;
+        }
         return $this->session->update(self::InsertSQL, $key, $data) > 0;
     }
 

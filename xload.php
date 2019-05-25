@@ -24,7 +24,7 @@ try {
     }
 
     // check xload cache
-    $cache = new DB\ProxyCache($dbsession);
+    $cache = new DB\CacheIO($dbsession);
     $cache_key = $opts->cacheKey();
     $src = $cache->get($cache_key);
     if ($src === null) {

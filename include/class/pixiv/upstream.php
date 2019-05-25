@@ -2,7 +2,7 @@
 
 namespace Pixiv;
 
-use DB\ProxyCache;
+use DB\CacheIO;
 use DB\Session;
 use Exception;
 use HTTP;
@@ -30,9 +30,7 @@ class Upstream implements \Upstream {
     private $access_token = self::BuiltinAccessToken;
 
     public function __construct(Session $session) {
-        if($session !== null) {
-            $this->cache = new ProxyCache($session);
-        }
+        $this->cache = new CacheIO($session);
     }
 
     public function download(\Options $opts, Metadata &$metadata) {
@@ -72,7 +70,8 @@ class Upstream implements \Upstream {
         return $result['response'][0];
     }
     private function initOauth() {
-        if(!(_PIXIV_NEED_OAUTH) || $this->cache === null) {
+        if(  (!_PIXIV_NEED_OAUTH) ||
+            _PIXIV_REFRESH_TOKEN === null || empty(_PIXIV_REFRESH_TOKEN)) {
             return;
         }
         // load oauth data from cache

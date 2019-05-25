@@ -2,7 +2,7 @@
 
 namespace ManHuaGui;
 
-use DB\ProxyCache;
+use DB\CacheIO;
 use DB\Session;
 use HTTP;
 use ImageConvertor;
@@ -17,14 +17,12 @@ class Upstream implements \Upstream {
     private const ImageHost = "https://us.hamreus.com";
 
     /**
-     * @var ProxyCache
+     * @var CacheIO
      */
     private $cache = null;
 
     public function __construct(Session $session = null) {
-        if($session !== null) {
-            $this->cache = new ProxyCache($session);
-        }
+        $this->cache = new CacheIO($session);
     }
 
     public function download(\Options $opts, Metadata &$metadata) {
@@ -56,14 +54,12 @@ class Upstream implements \Upstream {
         $cache_key = join('_', array('mhg', 'data', $book_id, $chapter_id));
 
         $data = null;
-        // try get chapter data from cache
-        if($this->cache !== null) {
-            $data = $this->cache->get($cache_key);
-        }
+        // get data from cache
+        $data = $this->cache->get($cache_key);
         // parse from upstream
         if($data === null) {
             $data = $this->fetchData($book_id, $chapter_id);
-            if($data !== null && $this->cache !== null) {
+            if($data !== null) {
                 $this->cache->put($cache_key, $data);
             }
         }
