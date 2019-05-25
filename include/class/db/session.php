@@ -53,13 +53,6 @@ class Session {
         return $stmt;
     }
 
-    /**
-     * Execute a select SQL, return query result.
-     *
-     * @param string $sql
-     * @param mixed ...$params
-     * @return array
-     */
     public function query(string $sql, ...$params): array {
         $stmt = $this->prepare($sql, ...$params);
         $result = array();
@@ -73,13 +66,6 @@ class Session {
         return $result;
     }
 
-    /**
-     * Execute a insert/update/delete SQL, return affected rows count.
-     *
-     * @param string $sql
-     * @param mixed ...$params
-     * @return int
-     */
     public function update(string $sql, ...$params): int {
         $stmt = $this->prepare($sql, ...$params);
 
