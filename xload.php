@@ -25,7 +25,7 @@ try {
 
     // check xload cache
     $cache = new DB\CacheIO($dbsession);
-    $cache_key = $opts->cacheKey();
+    $cache_key = 'telegraph_' . $opts->cacheKey();
     $src = $cache->get($cache_key);
     if ($src === null) {
         // download from upstream
