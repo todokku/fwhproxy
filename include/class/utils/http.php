@@ -1,5 +1,7 @@
 <?php
 
+namespace Utils;
+
 abstract class HTTP {
 
     const UserAgent = 'FWHAgent/1.0';

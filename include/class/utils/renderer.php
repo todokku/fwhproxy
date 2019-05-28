@@ -1,5 +1,7 @@
 <?php
 
+namespace Utils;
+
 class Renderer {
 
     private $status_code;

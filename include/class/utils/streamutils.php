@@ -1,5 +1,7 @@
 <?php
 
+namespace Utils;
+
 abstract class StreamUtils {
 
     private const BufferSize = 4096;

@@ -4,7 +4,7 @@ namespace ManHuaGui;
 
 use DB\CacheIO;
 use DB\Session;
-use HTTP;
+use Utils\HTTP;
 use ImageConvertor;
 use LZString\Base64Decoder;
 use Metadata;

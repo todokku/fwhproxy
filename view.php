@@ -7,7 +7,7 @@ require_once "include/classloader.php";
 $dbsession = new DB\Session();
 
 // prepare render
-$renderer = new Renderer();
+$renderer = new Utils\Renderer();
 try {
     // check source
     $source = $_GET['source'];

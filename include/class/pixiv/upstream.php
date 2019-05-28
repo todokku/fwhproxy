@@ -5,7 +5,7 @@ namespace Pixiv;
 use DB\CacheIO;
 use DB\Session;
 use Exception;
-use HTTP;
+use Utils\HTTP;
 use Metadata;
 use ProxyException;
 

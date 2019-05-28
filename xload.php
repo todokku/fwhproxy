@@ -56,7 +56,7 @@ try {
 $result = json_encode($result);
 
 // write result
-$renderer = new Renderer();
+$renderer = new Utils\Renderer();
 $renderer->add_header('Content-Type', 'application/json');
 $renderer->add_header('Content-Length', strlen($result));
 $renderer->set_body($result);
