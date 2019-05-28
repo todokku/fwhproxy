@@ -9,3 +9,6 @@ define("_MYSQL_DATABASE", "database_name");
 // Pixiv config
 define('_PIXIV_NEED_OAUTH', false);
 define('_PIXIV_REFRESH_TOKEN', '');
+
+define('_TELEGRAM_TOKEN', '');
+define('_TELEGRAM_CHAT_ID', 0);
