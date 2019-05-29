@@ -6,8 +6,7 @@ require_once "include/classloader.php";
 // start database session
 $dbsession = new DB\Session();
 
-// prepare render
-$result = array(
+$response = array(
     'ok' => false
 );
 try {
@@ -32,7 +31,7 @@ try {
     }
 
     // check xload cache
-    $cache_key = $to . $opts->cacheKey();
+    $cache_key = $to . '_' . $opts->cacheKey();
     $cache = new DB\CacheIO($dbsession);
     $result = $cache->get($cache_key);
     if ($result === null) {
@@ -52,20 +51,19 @@ try {
     }
 
     // set result
-    $result['ok'] = true;
-    $result['result'] = $result;
+    $response['ok'] = true;
+    $response['result'] = $result;
 } catch (Exception $e) {
-    $result['error'] = $e->getMessage();
+    $response['error'] = $e->getMessage();
 } finally {
     $dbsession->close();
 }
 
 // convert result to JSON
-$result = json_encode($result);
-
+$body = json_encode($response);
 // write result
 $renderer = new Utils\Renderer();
 $renderer->add_header('Content-Type', 'application/json');
-$renderer->add_header('Content-Length', strlen($result));
-$renderer->set_body($result);
+$renderer->add_header('Content-Length', strlen($body));
+$renderer->set_body($body);
 $renderer->render();

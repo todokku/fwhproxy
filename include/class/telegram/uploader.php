@@ -16,7 +16,7 @@ final class Uploader implements \Uploader {
 
     public function __construct() {
         $this->token = _TELEGRAM_TOKEN;
-        $this->chat_id = _TELEGRAM_TOKEN;
+        $this->chat_id = _TELEGRAM_CHAT_ID;
     }
 
     public function upload($data, string $mimetype = null): ?string {
@@ -55,7 +55,7 @@ final class Uploader implements \Uploader {
             throw new Exception("sendPhoto error: " . $result['description']);
         }
 
-        return $resp['result'];
+        return $result['result'];
     }
 
     private function deleteMessage($message_id) {
