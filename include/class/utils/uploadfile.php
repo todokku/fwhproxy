@@ -2,6 +2,8 @@
 
 namespace Utils;
 
+use CURLFile;
+
 final class UploadFile {
 
     private $filename;
