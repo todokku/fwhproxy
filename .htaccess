@@ -1,15 +1,17 @@
 Options -Indexes
 
 RewriteEngine On
-# Pixiv
+# View
 RewriteRule ^pixiv/(\d+)$ view.php?source=pixiv&illust_id=$1 [QSA]
 RewriteRule ^pixiv/(\d+)/(\d+)$ view.php?source=pixiv&illust_id=$1&page=$2 [QSA]
 RewriteRule ^pixiv/(\d+)/(medium|large|auto)$ view.php?source=pixiv&illust_id=$1&size=$2 [QSA]
 RewriteRule ^pixiv/(\d+)/(\d+)/(medium|large|auto)$ view.php?source=pixiv&illust_id=$1&page=$2&size=$3 [QSA]
-# ManHuaGui
 RewriteRule ^manhuagui/(\d+)/(\d+)/(\d+)$ view.php?source=manhuagui&book_id=$1&chapter_id=$2&page=$3 [QSA]
 RewriteRule ^manhuagui/(\d+)/(\d+)/(\d+).(jpeg|jpg|gif|png)$ view.php?source=manhuagui&book_id=$1&chapter_id=$2&page=$3&format=$4 [QSA]
-# Teleport
-RewriteRule ^xload/pixiv/(\d+)$ xload.php?source=pixiv&size=large&illust_id=$1 [QSA]
-RewriteRule ^xload/pixiv/(\d+)/(\d+)$ xload.php?source=pixiv&size=large&illust_id=$1&page=$2 [QSA]
-RewriteRule ^xload/manhuagui/(\d+)/(\d+)/(\d+).(jpeg|jpg|gif|png)$ xload.php?source=manhuagui&book_id=$1&chapter_id=$2&page=$3&format=$4 [QSA]
+
+# Xload
+RewriteRule ^telegram/pixiv/(\d+)$ xload.php?from=pixiv&to=telegram&illust_id=$1&size=large [QSA]
+RewriteRule ^telegram/pixiv/(\d+)/(\d+)$ xload.php?from=pixiv&to=telegram&illust_id=$1&page=$2&size=large [QSA]
+RewriteRule ^telegraph/pixiv/(\d+)$ xload.php?from=pixiv&to=telegraph&illust_id=$1&size=auto [QSA]
+RewriteRule ^telegraph/pixiv/(\d+)/(\d+)$ xload.php?from=pixiv&to=telegraph&illust_id=$1&page=$2&size=auto [QSA]
+RewriteRule ^telegraph/manhuagui/(\d+)/(\d+)/(\d+).(jpeg|jpg|gif|png)$ xload.php?from=manhuagui&to=telegraph&book_id=$1&chapter_id=$2&page=$3&format=$4 [QSA]

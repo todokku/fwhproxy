@@ -11,23 +11,31 @@ $result = array(
     'ok' => false
 );
 try {
-    // check source
-    $source = $_GET['source'];
-    if (strcasecmp('pixiv', $source) === 0) {
+    // xload source
+    $from = $_GET['from'];
+    if (strcasecmp('pixiv', $from) === 0) {
         $opts = Pixiv\Options::parse($_GET);
         $upstream = new Pixiv\Upstream($dbsession);
-    } elseif (strcasecmp('manhuagui', $source) === 0) {
+    } elseif (strcasecmp('manhuagui', $from) === 0) {
         $opts = ManHuaGui\Options::parse($_GET);
         $upstream = new ManHuaGui\Upstream($dbsession);
     } else {
         throw new ProxyException('Unsupported Source', 400);
     }
 
+    // xload destation
+    $to = $_GET['to'];
+    if (strcasecmp('telegram', $to) === 0) {
+        $target = new Telegram\Uploader();
+    } elseif (strcasecmp('telegraph', $to) === 0) {
+        $target = new Telegraph\Uploader();
+    }
+
     // check xload cache
+    $cache_key = $to . $opts->cacheKey();
     $cache = new DB\CacheIO($dbsession);
-    $cache_key = 'telegraph_' . $opts->cacheKey();
-    $src = $cache->get($cache_key);
-    if ($src === null) {
+    $result = $cache->get($cache_key);
+    if ($result === null) {
         // download from upstream
         $metadata = new Metadata();
         $image = $upstream->download($opts, $metadata);
@@ -35,17 +43,17 @@ try {
             throw new ProxyException('Download Failed', 404);
         }
         // upload to telegraph
-        $src = Telegraph::uploadData($image, $metadata->mimetype);
-        if($src === null) {
+        $result = $target->upload($image, $metadata->mimetype);
+        if($result === null) {
             throw new ProxyException("Upload failed", 503);
         }
         // store in cache
-        $cache->put($cache_key, $src);
+        $cache->put($cache_key, $result);
     }
 
     // set result
     $result['ok'] = true;
-    $result['src'] = $src;
+    $result['result'] = $result;
 } catch (Exception $e) {
     $result['error'] = $e->getMessage();
 } finally {
